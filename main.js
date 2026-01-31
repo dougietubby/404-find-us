@@ -40,10 +40,34 @@ const baseTexture = loader.load("./lib/phasmo_capsule.png");
 const grungeTexture = loader.load("./lib/vhs_front_texture.png"); // optional scratches overlay
 const normalTexture = loader.load("./lib/vhs_front_normal.png"); // optional normal map
 
+// Side + Top textures
+const sidebaseT = loader.load("./lib/vhs_side_capsule.png");
+const sideTexture = loader.load("./lib/vhs_side_texture.png");
+const sideNormal = loader.load("./lib/vhs_side_normal.png");
+
+const topbaseT = loader.load("./lib/vhs_top_capsule.png");
+const topTexture = loader.load("./lib/vhs_top_texture.png");
+const topNormal = loader.load("./lib/vhs_top_normal.png");
+
+const bottombaseT = loader.load("./lib/vhs_bottom_capsule.png");
+const bottomNormal = loader.load("./lib/vhs_bottom_normal.png");
+
+
 // Correct color space
 baseTexture.colorSpace = THREE.SRGBColorSpace;
 grungeTexture.colorSpace = THREE.SRGBColorSpace;
 normalTexture.colorSpace = THREE.SRGBColorSpace;
+
+sidebaseT.colorSpace = THREE.SRGBColorSpace;
+sideTexture.colorSpace = THREE.SRGBColorSpace;
+sideNormal.colorSpace = THREE.SRGBColorSpace;
+
+topbaseT.colorSpace = THREE.SRGBColorSpace;
+topTexture.colorSpace = THREE.SRGBColorSpace;
+topNormal.colorSpace = THREE.SRGBColorSpace;
+
+bottombaseT.colorSpace = THREE.SRGBColorSpace;
+bottomNormal.colorSpace = THREE.SRGBColorSpace;
 
 // Optional: repeat/wrap
 grungeTexture.wrapS = grungeTexture.wrapT = THREE.RepeatWrapping;
@@ -56,25 +80,57 @@ const plastic = new THREE.MeshStandardMaterial({
   metalness: 0.05,
 });
 
+// Front label (with grunge + normal)
 const labelMaterial = new THREE.MeshStandardMaterial({
-  map: baseTexture,           // your capsule art
-  roughnessMap: grungeTexture, // scratches/dirt
-  roughness: 0.85,            // base roughness: 0 = smooth, 1 = very rough
-  metalness: 0.05,             // slight plastic sheen
-  normalMap: normalTexture,    // subtle bumps
+  map: baseTexture,
+  roughnessMap: grungeTexture,
+  roughness: 0.85,
+  metalness: 0.05,
+  normalMap: normalTexture,
   normalScale: new THREE.Vector2(0.05, 0.05),
 });
+
+// Sides (reuse for left & right + back)
+const sideMaterial = new THREE.MeshStandardMaterial({
+  map: sidebaseT,
+  roughnessMap: sideTexture,
+  normalMap: sideNormal,
+  roughness: 0.7,
+  metalness: 0.05,
+  normalScale: new THREE.Vector2(0.05, 0.05),
+});
+
+// Top + bottom
+const topMaterial = new THREE.MeshStandardMaterial({
+  map: topbaseT,
+  roughnessMap: topTexture,
+  normalMap: topNormal,
+  roughness: 0.7,
+  metalness: 0.05,
+  normalScale: new THREE.Vector2(0.05, 0.05),
+});
+
+// Top + bottom
+const bottomMaterial = new THREE.MeshStandardMaterial({
+  map: bottombaseT,
+  roughnessMap: topTexture,
+  normalMap: bottomNormal,
+  roughness: 0.7,
+  metalness: 0.05,
+  normalScale: new THREE.Vector2(0.05, 0.05),
+});
+
 
 // --- Box geometry (vertical VHS) ---
 const geometry = new THREE.BoxGeometry(1.6, 3.0, 0.4);
 
 const materials = [
-  plastic,       // right
-  plastic,       // left
-  plastic,       // top
-  plastic,       // bottom
-  labelMaterial, // front (cover art + grunge)
-  plastic,       // back
+  sideMaterial,  // right
+  sideMaterial,  // left
+  topMaterial,   // top
+  bottomMaterial,   // bottom
+  labelMaterial, // front
+  sideMaterial,  // back
 ];
 
 const vhs = new THREE.Mesh(geometry, materials);
