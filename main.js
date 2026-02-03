@@ -3,8 +3,19 @@ import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
 // --- Scene setup ---
 const canvas = document.getElementById("scene");
 const scene = new THREE.Scene();
-//scene.fog = new THREE.Fog(0x06070b, 2.8, 8.5);
-//document.body.style.cursor = "default";
+
+//  Intro Text
+const introText = document.getElementById("intro-text");
+let introHidden = false;
+
+function hideIntroText() {
+  if (introHidden) return;
+  introHidden = true;
+  introText.style.opacity = "0";
+  setTimeout(() => introText.remove(), 1300);
+}
+
+
 //  zap stuff
 let zapTriggered = false;
 let zapTimer = 0;
@@ -12,16 +23,24 @@ let postZapInteractive = false;
 let lastTime = performance.now(); // global
 //  Movement with zoom
 let scrollProgress = 0; // 0 → 1
-let targetCameraZ = 20; // start far away
 
+//#region Camera Setup
+//  Init Camera
 const camera = new THREE.PerspectiveCamera(
   45,
   window.innerWidth / window.innerHeight,
   0.1,
   100
 );
-camera.position.z = 20.0;
+camera.position.z = 20.0; //  Changed as scrolled
+//  Realistic Camera Height
+camera.position.set(0, 1.6, 20); // eye height
+camera.lookAt(0, 0, 0);
+//  Added Doly system set up
+const cameraStart = new THREE.Vector3(0, 1.6, 20);
+const cameraEnd = new THREE.Vector3(0, 1.6, 6.5);
 
+//   Create Rnderer
 const renderer = new THREE.WebGLRenderer({
   canvas,
   antialias: true,
@@ -29,67 +48,119 @@ const renderer = new THREE.WebGLRenderer({
 });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
-renderer.setClearColor(0x07080c, 1);  //  To help avoid clear cutoff
+renderer.physicallyCorrectLights = true;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+//#endregion
+
+//  --- Simple Sky Fog
+scene.fog = new THREE.FogExp2(0x06070b, 0.09);
+renderer.setClearColor(0x06070b, 1);
 
 //  Texture loader for VHS
 const loader = new THREE.TextureLoader();
 
+//#region Lighting
 // Ambient light for subtle fill
-scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.15);
+const ambientLight = new THREE.AmbientLight(0xffffff, 1.1);
 scene.add(ambientLight);
 
-const fillLight = new THREE.DirectionalLight(0xffffff, 0.15);
-fillLight.position.set(-3, 1, 2);
-scene.add(fillLight);
-
-const keyLight = new THREE.DirectionalLight(0xffffff, 0.3);
-keyLight.position.set(0, 0, 5);
-keyLight.target.position.set(0, 0, 0);
-scene.add(keyLight);
-scene.add(keyLight.target);
-
-//  Noise texture
-/*
-const noiseTexture = loader.load("./lib/vhs_noise.png");
-noiseTexture.wrapS = noiseTexture.wrapT = THREE.RepeatWrapping;
-noiseTexture.colorSpace = THREE.SRGBColorSpace;
-
-const noiseMaterial = new THREE.MeshBasicMaterial({
-  map: noiseTexture,
-  transparent: true,
-  opacity: 0.05,
-  blending: THREE.AdditiveBlending,
-  depthWrite: false,
-});
-
-const noisePlane = new THREE.Mesh(
-  new THREE.PlaneGeometry(20, 20),
-  noiseMaterial
+//  Flashlight
+const flashlight = new THREE.SpotLight(
+  0xffffff,
+  4.5,            // stronger base
+  30,             // longer throw
+  Math.PI / 7,    // wider initial cone
+  0.45,           // soft edge
+  2.0
 );
 
-noisePlane.position.z = 3.0;
-scene.add(noisePlane);
-*/
+flashlight.position.set(0, 0, 0);
+flashlight.target.position.set(0, -0.3, -1);
 
+camera.add(flashlight);
+camera.add(flashlight.target);
+
+
+scene.add(camera);
+
+//  Spill Light (Helps with pitch-black clipping)
+const spillLight = new THREE.PointLight(0xffffff, 0.3, 10, 2);
+spillLight.position.set(0, 0, 0);
+camera.add(spillLight);
+
+//  Read light after zap
+const readLight = new THREE.DirectionalLight(0x99ccff, 0);
+scene.add(readLight);
+scene.add(readLight.target);
+
+//#endregion
+
+//#region Render Ground
+// Store base ground values
+const groundBaseNormal = 0.6;
+const groundZapNormal  = 1.2;
+
+let groundRipple = 0;
+
+// --- Ground textures ---
+const groundAlbedo = loader.load("./lib/ground_dark_albedo.webp");
+//const groundNormal = loader.load("./lib/ground_dark_normal.webp");
+const groundRough  = loader.load("./lib/ground_dark_roughness.webp");
+
+// Color space
+groundAlbedo.colorSpace = THREE.SRGBColorSpace;
+
+// Repeat so it doesn’t stretch
+groundAlbedo.wrapS = groundAlbedo.wrapT = THREE.RepeatWrapping;
+//groundNormal.wrapS = groundNormal.wrapT = THREE.RepeatWrapping;
+groundRough.wrapS  = groundRough.wrapT  = THREE.RepeatWrapping;
+
+const groundRepeat = 20;
+groundAlbedo.repeat.set(groundRepeat, groundRepeat);
+//groundNormal.repeat.set(groundRepeat, groundRepeat);
+groundRough.repeat.set(groundRepeat, groundRepeat);
+
+//  Create mesh and add to scene
+const groundMaterial = new THREE.MeshStandardMaterial({
+  map: groundAlbedo,
+  //normalMap: groundNormal,
+  roughnessMap: groundRough,
+  roughness: 1.0,
+  metalness: 0.5,
+  //normalScale: new THREE.Vector2(0.6, 0.6), // key value
+});
+
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(200, 200),
+  groundMaterial
+);
+
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = -1.6;
+ground.receiveShadow = false;
+scene.add(ground);
+
+//#endregion
+
+//#region Render VHS Tape
 // --- Load textures ---
 
-const baseTexture = loader.load("./lib/phasmo_capsule.png");
-const grungeTexture = loader.load("./lib/vhs_front_texture.png"); // optional scratches overlay
-const normalTexture = loader.load("./lib/vhs_front_normal.png"); // optional normal map
+const baseTexture = loader.load("./lib/phasmo_capsule.webp");
+const grungeTexture = loader.load("./lib/vhs_front_texture.webp"); // optional scratches overlay
+const normalTexture = loader.load("./lib/vhs_front_normal.webp"); // optional normal map
 
 // Side + Top textures
-const sidebaseT = loader.load("./lib/vhs_side_capsule.png");
+const sidebaseT = loader.load("./lib/vhs_side_capsule.webp");
 const sideTexture = loader.load("./lib/vhs_side_texture.png");
 const sideNormal = loader.load("./lib/vhs_side_normal.png");
 
-const topbaseT = loader.load("./lib/vhs_top_capsule.png");
-const topTexture = loader.load("./lib/vhs_top_texture.png");
-const topNormal = loader.load("./lib/vhs_top_normal.png");
+const topbaseT = loader.load("./lib/vhs_top_capsule.webp");
+const topTexture = loader.load("./lib/vhs_top_texture.webp");
+const topNormal = loader.load("./lib/vhs_top_normal.webp");
 
-const bottombaseT = loader.load("./lib/vhs_bottom_capsule.png");
-const bottomNormal = loader.load("./lib/vhs_bottom_normal.png");
+const bottombaseT = loader.load("./lib/vhs_bottom_capsule.webp");
+const bottomNormal = loader.load("./lib/vhs_bottom_normal.webp");
 
 
 // Correct color space
@@ -112,14 +183,6 @@ bottomNormal.colorSpace = THREE.SRGBColorSpace;
 grungeTexture.wrapS = grungeTexture.wrapT = THREE.RepeatWrapping;
 normalTexture.wrapS = normalTexture.wrapT = THREE.RepeatWrapping;
 
-
-// --- Create materials ---
-const plastic = new THREE.MeshStandardMaterial({
-  color: 0x121212,
-  roughness: 0.6,
-  metalness: 0.05,
-});
-
 // Front label (with grunge + normal)
 const labelMaterial = new THREE.MeshStandardMaterial({
   map: baseTexture,
@@ -127,8 +190,12 @@ const labelMaterial = new THREE.MeshStandardMaterial({
   roughness: 0.85,
   metalness: 0.05,
   normalMap: normalTexture,
-  normalScale: new THREE.Vector2(0.05, 0.05),
+  normalScale: new THREE.Vector2(0.18, 0.18),
+  
 });
+
+labelMaterial.emissive = new THREE.Color(0x111111);
+labelMaterial.emissiveIntensity = 0.0;
 
 // Sides (reuse for left & right + back)
 const sideMaterial = new THREE.MeshStandardMaterial({
@@ -174,29 +241,47 @@ const materials = [
 ];
 
 const vhs = new THREE.Mesh(geometry, materials);
+vhs.position.y = -0.85;  //  in ground
+//vhs.rotation.x = -0.1;
 vhs.rotation.y = -0.2;
 vhs.rotation.x = 0.05;
 vhs.frustumCulled = false;
 scene.add(vhs);
 
+//#endregion
+
+//#region Fade out logo
+/* const poster = document.getElementById("lcp-poster");
+
+poster.style.transition = "opacity 0.8s ease";
+poster.style.opacity = "0";
+
+setTimeout(() => {
+  poster.remove();
+}, 900); */
+//#endregion
+
+
+//#region Mouse Controls
 // --- Mouse interaction ---
 const mouse = { x: 0, y: 0 };
 const targetRotation = { x: 0, y: 0 };
 
 window.addEventListener("mousemove", (e) => {
-  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = (e.clientY / window.innerHeight) * 2 - 1;
+  if (zapTriggered) {
+    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = (e.clientY / window.innerHeight) * 2 - 1;
 
-  targetRotation.y = mouse.x * 0.6;
-  targetRotation.x = mouse.y * 0.4;
+    targetRotation.y = mouse.x * 0.6;
+    targetRotation.x = mouse.y * 0.4;
+  }
 });
 
 window.addEventListener("wheel", (e) => {
   scrollProgress += e.deltaY * 0.002;
   scrollProgress = THREE.MathUtils.clamp(scrollProgress, 0, 1);
 
-  // Map scroll to camera distance
-  targetCameraZ = THREE.MathUtils.lerp(20, 6, scrollProgress);
+  hideIntroText();
 });
 
 // --- Raycaster + mouse setup ---
@@ -232,6 +317,18 @@ window.addEventListener("click", (event) => {
     window.location.href = "https://store.steampowered.com/app/2654210/Phasmonauts/";
   }
 });
+//#endregion
+
+//#region Lightning Setup
+// Lightning setup
+const lightningMaterial = new THREE.LineBasicMaterial({ color: 0x99ccff });
+const lightningPoints = [ new THREE.Vector3(0, 20, 0), new THREE.Vector3(0, 0, 0) ];
+const lightningGeometry = new THREE.BufferGeometry().setFromPoints(lightningPoints);
+const lightning = new THREE.Line(lightningGeometry, lightningMaterial);
+lightning.visible = false; // start hidden
+scene.add(lightning);
+//#endregion
+
 
 // --- Idle sway setup ---
 const clock = new THREE.Clock();
@@ -243,8 +340,7 @@ window.addEventListener("resize", () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-
-
+//#region Animate (Function)
 // --- Animation loop ---
 function animate() {
   requestAnimationFrame(animate);
@@ -255,83 +351,160 @@ function animate() {
 
   const t = clock.getElapsedTime();
 
- 
-  
-
-  // Idle sway
-  const idleY = Math.sin(t * 0.6) * 0.08;
-  const idleX = Math.sin(t * 0.4) * 0.04;
-  const finalY = targetRotation.y + idleY;
-  const finalX = targetRotation.x + idleX;
-
   // Smooth interpolation
-  vhs.rotation.y += (finalY - vhs.rotation.y) * 0.06;
-  vhs.rotation.x += (finalX - vhs.rotation.x) * 0.06;
-  vhs.rotation.z = Math.sin(t * 0.3) * 0.015;
+  if (zapTriggered) {
+      // Idle sway
+    const idleY = Math.sin(t * 0.6) * 0.08;
+    const idleX = Math.sin(t * 0.4) * 0.04;
+    const finalY = targetRotation.y + idleY;
+    const finalX = targetRotation.x + idleX;
+
+    vhs.rotation.y += (finalY - vhs.rotation.y) * 0.06;
+    vhs.rotation.x += (finalX - vhs.rotation.x) * 0.06;
+    vhs.rotation.z = Math.sin(t * 0.3) * 0.015;
+  }
 
   // --- Lighting tied to scroll ---
-  ambientLight.intensity = THREE.MathUtils.lerp(0.15, 0.45, scrollProgress);
-  fillLight.intensity    = THREE.MathUtils.lerp(0.1,  0.35, scrollProgress);
-  keyLight.intensity     = THREE.MathUtils.lerp(0.3,  1.1,  scrollProgress);
-
-  //  Perlin static
-  //noiseTexture.offset.y -= 0.004;
-  //noiseTexture.offset.x += 0.001;
-
-  //noisePlane.position.x = (Math.random() - 0.5) * 0.05;
-  //noisePlane.position.y = (Math.random() - 0.5) * 0.05;
-
-  //  Animate fog
-  //scene.fog.near = 2.6 + Math.sin(t * 0.4) * 0.2;
-  //scene.fog.far  = 8.5 + Math.sin(t * 0.3) * 0.3;
-
+  ambientLight.intensity = THREE.MathUtils.lerp(0.50, 1.1, scrollProgress);
+  
   //  Animate smoothly going towards camera
-  camera.position.z += (targetCameraZ - camera.position.z) * 0.08;
+  const dollyProgress = THREE.MathUtils.clamp(scrollProgress, 0, 0.85) / 0.85;
+  const dollyPos = cameraStart.clone().lerp(cameraEnd, dollyProgress);
+  camera.position.lerp(dollyPos, 0.08);
 
-  //  Grow vhs tape
-  const scale = THREE.MathUtils.lerp(0.85, 1.0, scrollProgress);
-  vhs.scale.set(scale, scale, scale);
+  // Always look slightly *down* at the tape
+  camera.lookAt(
+    vhs.position.x,
+    vhs.position.y + 0.3,
+    vhs.position.z
+  );
+
+  //  Animate Flashlight
+  flashlight.position.set(
+    0.06,
+    0.18,
+    0.25
+  );
+  flashlight.rotation.z = Math.sin(t * 12.0) * 0.002;
+
+  flashlight.target.position.set(
+    vhs.position.x,
+    vhs.position.y + 0.25,
+    vhs.position.z + 0.35
+  );
+
+  // Always look slightly *down* at the tape
+  camera.lookAt(
+    vhs.position.x,
+    vhs.position.y + 0.3,
+    vhs.position.z
+  );
+
   //  Far vhs jitter
-  const distanceJitter = (1 - scrollProgress) * 0.02;
+  const distanceJitter = (1 - scrollProgress) * 0.005;
   vhs.rotation.z += Math.sin(t * 10.5) * distanceJitter;
-    // Lightning zap — only once
-  if (!zapTriggered && scrollProgress >= 0.999) {
+
+//#region Lightning ZAP
+if (!zapTriggered && scrollProgress >= 0.999) {
     console.log("Zap triggered!", scrollProgress);
-    scrollProgress = 1.0; // ensure it reaches exact 1.0
+    scrollProgress = 1.0;
     zapTriggered = true;
     zapTimer = 0.15;
-    renderer.toneMappingExposure = 1.2;
-    keyLight.color.set(0xbfd9ff);
-    ambientLight.intensity = 0.8;
+
+    ambientLight.intensity = 1.5;
+    renderer.toneMappingExposure = 1.3;
+    flashlight.intensity = 6.0;
+
+    // Ground reacts to the zap
+    /* groundMaterial.normalScale.set(
+        THREE.MathUtils.lerp(groundBaseNormal, groundZapNormal, 1),
+        THREE.MathUtils.lerp(groundBaseNormal, groundZapNormal, 1)
+    ); */
+}
+
+// --- Zap countdown & VHS wiggle ---
+if (zapTriggered && zapTimer > 0) {
+    lightning.visible = true;
+
+    // Flicker intensity / alpha
+    const flicker = Math.random() * 0.8 + 0.2;
+    lightningMaterial.color.setHSL(0.55, 1, flicker); // blueish lightning
+
+    // Optionally move start XZ a bit for dynamic strike
+    lightning.geometry.attributes.position.setXYZ(0, (Math.random() - 0.5) * 2, 20, (Math.random() - 0.5) * 2);
+    lightning.geometry.attributes.position.needsUpdate = true;
+
+    // Quick fade out after zap
+    if (zapTimer < 0.05) lightning.visible = false;
+
+    const shockStrength = Math.sin((0.15 - zapTimer) * Math.PI * 10) * 0.2;
+    groundMaterial.emissive = new THREE.Color(0x0033ff);
+    groundMaterial.emissiveIntensity = shockStrength;
+
+    // Ripple the normal map for a magical shock
+    //const normalScale = THREE.MathUtils.lerp(groundBaseNormal, groundZapNormal, shockStrength);
+    //groundMaterial.normalScale.set(normalScale, normalScale);
+
+    // VHS Z wiggle
+    vhs.rotation.z += Math.sin(t * 40) * 0.25;
+
+    // Smoothly lift VHS a bit during zap (0 → ~0.0)
+    vhs.position.y = THREE.MathUtils.lerp(vhs.position.y, 0.0, 0.15);
+
+    camera.position.x += (Math.random() - 0.5) * 0.05;
+    camera.position.y += (Math.random() - 0.5) * 0.05;
+
+    // Decrease timer
+    zapTimer -= delta;
+    if (zapTimer < 0) zapTimer = 0;
+}
+
+// --- Post-zap smooth transition to final Y ---
+if (zapTriggered && zapTimer <= 0 && !postZapInteractive) {
+    // Smoothly move VHS Y to final position
+    vhs.position.y = THREE.MathUtils.lerp(vhs.position.y, 2.0, 0.08);
+    // Activate read light
+    readLight.intensity = 6.5;
+    readLight.position.copy(camera.position);
+    readLight.target.position.set(
+        vhs.position.x,
+        vhs.position.y + 0.4,
+        vhs.position.z
+    );
+    readLight.castShadow = true;
+    readLight.shadow.mapSize.width = 1024;
+    readLight.shadow.mapSize.height = 1024;
+    readLight.shadow.radius = 4;
+    readLight.shadow.bias = -0.001;
+
+    // Smoothly fade emissive back to 0
+    groundMaterial.emissiveIntensity = THREE.MathUtils.lerp(
+        groundMaterial.emissiveIntensity, 
+        0,          // base emissive intensity
+        0.05        // smooth factor (smaller = slower)
+    );
     
-  }
+    // Once VHS is nearly there, finalize post-zap state
+    if (Math.abs(vhs.position.y - 2.0) < 0.01) {
+        postZapInteractive = true;
 
-  // Zap countdown
-  if (zapTriggered && zapTimer > 0) {
-      // Apply z wiggle for the zap
-      vhs.rotation.z += Math.sin(t * 40) * 0.2;
+        ambientLight.intensity = 1.1;
+        renderer.toneMappingExposure = 1.0;
 
-      // Decrease the timer using delta
-      zapTimer -= delta;
-      if (zapTimer < 0) zapTimer = 0;
+        flashlight.intensity = 3.2;
+        flashlight.angle = Math.PI / 16;
+        flashlight.penumbra = 0.2;
 
-      console.log("zap right now", zapTimer.toFixed(3));
-  }
+        // Reset normal scale
+        //groundMaterial.normalScale.set(groundBaseNormal, groundBaseNormal);
 
-  // Post-zap stable state
-  if (zapTriggered && zapTimer <= 0 && !postZapInteractive) {
-      keyLight.intensity = 1.2;
-      ambientLight.intensity = 0.45;
-      keyLight.color.set(0xffffff);
-      renderer.toneMappingExposure = 1.0;
-      vhs.rotation.z = 0.0;
-      postZapInteractive = true;
-      console.log("Post-zap interactive state active!");
-  }
-
-
+        console.log("Post-zap interactive state active!");
+    }
+}
+  //#endregion
 
   renderer.render(scene, camera);
 }
+//#endregion
 
 animate();
