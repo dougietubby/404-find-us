@@ -291,7 +291,7 @@ canvas.addEventListener("touchstart", (e) => {
 }, { passive: false });
 
 canvas.addEventListener("touchmove", (e) => {
-  if (!zapTriggered) return;
+// allow touch always, but only rotate after zap
   e.preventDefault();
 
   // ---- ONE FINGER ROTATION ----
