@@ -273,7 +273,7 @@ let lastTouchX = 0;
 let lastTouchY = 0;
 let lastPinchDist = 0;
 
-canvas.addEventListener("touchstart", (e) => {
+window.addEventListener("touchstart", (e) => {
   if (!zapTriggered) return;
 
   if (e.touches.length === 1) {
@@ -290,7 +290,7 @@ canvas.addEventListener("touchstart", (e) => {
   }
 }, { passive: false });
 
-canvas.addEventListener("touchmove", (e) => {
+window.addEventListener("touchmove", (e) => {
 // allow touch always, but only rotate after zap
   e.preventDefault();
 
@@ -327,12 +327,12 @@ canvas.addEventListener("touchmove", (e) => {
   }
 }, { passive: false });
 
-canvas.addEventListener("touchend", (e) => {
+window.addEventListener("touchend", (e) => {
   if (!postZapInteractive) return;
   if (e.changedTouches.length !== 1) return;
 
   const touch = e.changedTouches[0];
-  const rect = canvas.getBoundingClientRect();
+  const rect = window.getBoundingClientRect();
 
   mouseVec.x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
   mouseVec.y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
