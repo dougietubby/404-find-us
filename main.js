@@ -267,6 +267,91 @@ setTimeout(() => {
 const mouse = { x: 0, y: 0 };
 const targetRotation = { x: 0, y: 0 };
 
+//#region Touch Controls
+let isTouching = false;
+let lastTouchX = 0;
+let lastTouchY = 0;
+let lastPinchDist = 0;
+
+canvas.addEventListener("touchstart", (e) => {
+  if (!zapTriggered) return;
+
+  if (e.touches.length === 1) {
+    isTouching = true;
+    lastTouchX = e.touches[0].clientX;
+    lastTouchY = e.touches[0].clientY;
+  }
+
+  // Pinch start
+  if (e.touches.length === 2) {
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    lastPinchDist = Math.sqrt(dx * dx + dy * dy);
+  }
+}, { passive: false });
+
+canvas.addEventListener("touchmove", (e) => {
+  if (!zapTriggered) return;
+  e.preventDefault();
+
+  // ---- ONE FINGER ROTATION ----
+  if (e.touches.length === 1 && isTouching) {
+    const touch = e.touches[0];
+
+    const dx = touch.clientX - lastTouchX;
+    const dy = touch.clientY - lastTouchY;
+
+    lastTouchX = touch.clientX;
+    lastTouchY = touch.clientY;
+
+    targetRotation.y += dx * 0.004;
+    targetRotation.x += dy * 0.003;
+
+    // Clamp so it stays readable
+    targetRotation.x = THREE.MathUtils.clamp(targetRotation.x, -0.6, 0.6);
+  }
+
+  // ---- TWO FINGER PINCH (SCROLL / DOLLY) ----
+  if (e.touches.length === 2) {
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    const delta = dist - lastPinchDist;
+    lastPinchDist = dist;
+
+    scrollProgress += delta * 0.002;
+    scrollProgress = THREE.MathUtils.clamp(scrollProgress, 0, 1);
+
+    hideIntroText();
+  }
+}, { passive: false });
+
+canvas.addEventListener("touchend", (e) => {
+  if (!postZapInteractive) return;
+  if (e.changedTouches.length !== 1) return;
+
+  const touch = e.changedTouches[0];
+  const rect = canvas.getBoundingClientRect();
+
+  mouseVec.x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
+  mouseVec.y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
+
+  targetRotation.y *= 0.98;
+  targetRotation.x *= 0.98;
+
+  raycaster.setFromCamera(mouseVec, camera);
+  const intersects = raycaster.intersectObject(vhs, true);
+
+  if (intersects.length > 0) {
+    window.location.href =
+      "https://store.steampowered.com/app/2654210/Phasmonauts/";
+  }
+});
+
+
+//#endregion
+
 window.addEventListener("mousemove", (e) => {
   if (zapTriggered) {
     mouse.x = (e.clientX / window.innerWidth) * 2 - 1;

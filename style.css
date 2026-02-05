@@ -5,6 +5,11 @@
   font-style: normal;
 }
 
+#scene {
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
 html, body {
   margin: 0;
   padding: 0;
@@ -30,7 +35,7 @@ canvas {
 
   font-family: "SixtyFourConvergence", monospace;
   font-size: clamp(24px, 4vw, 56px);
-  letter-spacing: 0.12em;
+  letter-spacing: 0.005em;
   color: rgba(200, 220, 255, 0.85);
 
   pointer-events: none;
