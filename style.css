@@ -17,6 +17,8 @@
 #scene {
   touch-action: none;
   overscroll-behavior: none;
+    -webkit-user-select: none;
+  user-select: none;
 }
 
 html, body {
@@ -76,7 +78,7 @@ canvas {
   font-size: clamp(14px, 2.5vw, 22px);
   letter-spacing: 0.12em;
 
-  color: rgb(45, 143, 110);
+  color: rgb(255, 238, 0);
   text-shadow:
     0 0 6px rgba(120, 160, 255, 0.25),
     0 0 12px rgba(80, 120, 255, 0.15);
@@ -102,4 +104,19 @@ canvas {
   0%   { opacity: 0.15; }
   40%  { opacity: 1; }
   100% { opacity: 0.15; }
+}
+
+#play-text {
+  position: absolute;
+  left: 50%;
+  top: 30%;           /* start somewhere above VHS */
+  transform: translate(-50%, -50%);
+  font-family: "Tiny5", monospace;
+  font-size: 2rem;
+  color: rgb(255, 238, 0);
+  text-shadow: 0 0 8px rgba(255, 204, 38, 0.7);
+  opacity: 0;          /* hidden by default */
+  transition: opacity 0.8s ease, top 0.5s ease;
+  pointer-events: none; /* don’t block touches */
+  z-index: 25;
 }

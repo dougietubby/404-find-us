@@ -285,19 +285,20 @@ const mouseVec = new THREE.Vector2();
 let isTouching = false;
 let lastTouchX = 0;
 let lastTouchY = 0;
-let movedDuringTouch = false;
+let totalTouchMove = 0;
 
-window.addEventListener("touchstart", (e) => {
+canvas.addEventListener("touchstart", (e) => {
   if (e.touches.length !== 1) return;
+  e.preventDefault();
 
   isTouching = true;
-  movedDuringTouch = false;
+  totalTouchMove = 0;
 
   lastTouchX = e.touches[0].clientX;
-  lastTouchY = e.touches[0].clientY;  
+  lastTouchY = e.touches[0].clientY;
 }, { passive: false });
 
-window.addEventListener("touchmove", (e) => {
+canvas.addEventListener("touchmove", (e) => {
   if (!isTouching || e.touches.length !== 1) return;
   e.preventDefault();
 
@@ -308,9 +309,7 @@ window.addEventListener("touchmove", (e) => {
   lastTouchX = touch.clientX;
   lastTouchY = touch.clientY;
 
-  if (Math.abs(dx) + Math.abs(dy) > 3) {
-    movedDuringTouch = true;
-  }
+  totalTouchMove += Math.abs(dx) + Math.abs(dy);
 
   hideIntroText();
   hideControls();
@@ -322,19 +321,19 @@ window.addEventListener("touchmove", (e) => {
     return;
   }
 
-  // AFTER zap → swipes rotate ONLY (no zooming back)
+  // AFTER zap → rotation ONLY
   targetRotation.y += dx * 0.004;
   targetRotation.x += dy * 0.003;
   targetRotation.x = THREE.MathUtils.clamp(targetRotation.x, -0.6, 0.6);
-
-  movedDuringTouch = true;
 }, { passive: false });
 
-window.addEventListener("touchend", (e) => {
+canvas.addEventListener("touchend", (e) => {
+  if (!isTouching) return;
   isTouching = false;
+
+  // 👇 THIS is what mobile Safari wants
   if (!postZapInteractive) return;
-  if (e.changedTouches.length !== 1) return;
-  /* if (movedDuringTouch) return; */
+  if (totalTouchMove > 6) return; // was a drag, not a tap (was 12 on default)
 
   const touch = e.changedTouches[0];
   const rect = canvas.getBoundingClientRect();
@@ -346,16 +345,17 @@ window.addEventListener("touchend", (e) => {
   const intersects = raycaster.intersectObject(vhs, true);
 
   if (intersects.length > 0) {
-    window.location.href =
-      "https://store.steampowered.com/app/2654210/Phasmonauts/";
+    // iOS-safe navigation
+    window.open(
+      "https://store.steampowered.com/app/2654210/Phasmonauts/",
+      "_self"
+    );
   }
-});
+}, { passive: false });
 
-window.addEventListener("touchcancel", (e) => {
-
+canvas.addEventListener("touchcancel", () => {
   isTouching = false;
 });
-
 //#endregion
 
 //#region Mouse Controls
@@ -640,6 +640,27 @@ if (zapTriggered && zapTimer <= 0 && !postZapInteractive) {
 
         console.log("Post-zap interactive state active!");
     }
+
+    const playText = document.getElementById("play-text");
+
+    if (postZapInteractive) {
+      // Make sure text is visible
+      if (playText.style.opacity == 0) {
+          playText.style.opacity = 1;
+      }
+
+      // Optional: move text smoothly to match VHS on screen
+      const vhsPos = vhs.position.clone();
+      vhsPos.y += 1.9; // slightly above tape
+
+      // Project 3D position to screen
+      const vector = vhsPos.project(camera);
+      const halfWidth = window.innerWidth / 2;
+      const halfHeight = window.innerHeight / 2;
+
+      playText.style.left = `${vector.x * halfWidth + halfWidth}px`;
+      playText.style.top  = `${-vector.y * halfHeight + halfHeight}px`;
+  }
 }
   //#endregion
 
