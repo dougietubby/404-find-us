@@ -162,8 +162,8 @@ const normalTexture = loader.load("./lib/vhs_front_normal.webp"); // optional no
 
 // Side + Top textures
 const sidebaseT = loader.load("./lib/vhs_side_capsule.webp");
-const sideTexture = loader.load("./lib/vhs_side_texture.png");
-const sideNormal = loader.load("./lib/vhs_side_normal.png");
+const sideTexture = loader.load("./lib/vhs_side_texture.webp");
+const sideNormal = loader.load("./lib/vhs_side_normal.webp");
 
 const topbaseT = loader.load("./lib/vhs_top_capsule.webp");
 const topTexture = loader.load("./lib/vhs_top_texture.webp");
@@ -214,7 +214,7 @@ const sideMaterial = new THREE.MeshStandardMaterial({
   normalMap: sideNormal,
   roughness: 0.7,
   metalness: 0.05,
-  normalScale: new THREE.Vector2(0.05, 0.05),
+  normalScale: new THREE.Vector2(0.5, 0.5),
 });
 
 // Top + bottom
@@ -234,7 +234,7 @@ const bottomMaterial = new THREE.MeshStandardMaterial({
   normalMap: bottomNormal,
   roughness: 0.7,
   metalness: 0.05,
-  normalScale: new THREE.Vector2(0.05, 0.05),
+  normalScale: new THREE.Vector2(0.5, 0.5),
 });
 
 
