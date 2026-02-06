@@ -289,18 +289,16 @@ let movedDuringTouch = false;
 
 window.addEventListener("touchstart", (e) => {
   if (e.touches.length !== 1) return;
-  if (movedDuringTouch) return;
 
   isTouching = true;
-  lastTouchX = e.touches[0].clientX;
-  lastTouchY = e.touches[0].clientY;
-
   movedDuringTouch = false;
+
+  lastTouchX = e.touches[0].clientX;
+  lastTouchY = e.touches[0].clientY;  
 }, { passive: false });
 
 window.addEventListener("touchmove", (e) => {
   if (!isTouching || e.touches.length !== 1) return;
-  if (movedDuringTouch) return;
   e.preventDefault();
 
   const touch = e.touches[0];
@@ -310,6 +308,10 @@ window.addEventListener("touchmove", (e) => {
   lastTouchX = touch.clientX;
   lastTouchY = touch.clientY;
 
+  if (Math.abs(dx) + Math.abs(dy) > 3) {
+    movedDuringTouch = true;
+  }
+  
   hideIntroText();
   hideControls();
 
@@ -349,7 +351,7 @@ window.addEventListener("touchend", (e) => {
   }
 });
 
-window.addEventListener("touchcancel", () => {
+window.addEventListener("touchcancel", (e) => {
 
   isTouching = false;
 });
@@ -369,6 +371,8 @@ window.addEventListener("mousemove", (e) => {
 });
 
 window.addEventListener("wheel", (e) => {
+  if (zapTriggered) return; // lock zoom after zap
+
   scrollProgress += e.deltaY * 0.002;
   scrollProgress = THREE.MathUtils.clamp(scrollProgress, 0, 1);
 
