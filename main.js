@@ -321,10 +321,20 @@ window.addEventListener("touchmove", (e) => {
 }, { passive: false });
 
 window.addEventListener("touchend", () => {
+  isTouching = false;
+  if (!postZapInteractive) return;
+  const touch = e.changedTouches[0]; 
+  const rect = canvas.getBoundingClientRect(); 
+  mouseVec.x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
+  mouseVec.y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
+  
   raycaster.setFromCamera(mouseVec, camera); 
   const intersects = raycaster.intersectObject(vhs, true); 
-  if (intersects.length > 0) { window.location.href = "https://store.steampowered.com/app/2654210/Phasmonauts/"; }
-  isTouching = false;
+  if (intersects.length > 0) { 
+    window.location.href = "https://store.steampowered.com/app/2654210/Phasmonauts/"; 
+  }
+
+  
 });
 
 window.addEventListener("touchcancel", () => {
