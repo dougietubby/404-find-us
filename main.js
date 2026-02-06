@@ -311,7 +311,7 @@ window.addEventListener("touchmove", (e) => {
   if (Math.abs(dx) + Math.abs(dy) > 3) {
     movedDuringTouch = true;
   }
-  
+
   hideIntroText();
   hideControls();
 
@@ -334,7 +334,7 @@ window.addEventListener("touchend", (e) => {
   isTouching = false;
   if (!postZapInteractive) return;
   if (e.changedTouches.length !== 1) return;
-  if (movedDuringTouch) return;
+  /* if (movedDuringTouch) return; */
 
   const touch = e.changedTouches[0];
   const rect = canvas.getBoundingClientRect();
