@@ -325,6 +325,12 @@ window.addEventListener("touchend", () => {
 });
 
 window.addEventListener("touchcancel", () => {
+  const intersects = raycaster.intersectObject(vhs, true);
+
+  if (intersects.length > 0) {
+    window.location.href = "https://store.steampowered.com/app/2654210/Phasmonauts/";
+  }
+  
   isTouching = false;
 });
 
