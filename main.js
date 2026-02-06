@@ -285,17 +285,22 @@ const mouseVec = new THREE.Vector2();
 let isTouching = false;
 let lastTouchX = 0;
 let lastTouchY = 0;
+let movedDuringTouch = false;
 
 window.addEventListener("touchstart", (e) => {
   if (e.touches.length !== 1) return;
+  if (movedDuringTouch) return;
 
   isTouching = true;
   lastTouchX = e.touches[0].clientX;
   lastTouchY = e.touches[0].clientY;
+
+  movedDuringTouch = false;
 }, { passive: false });
 
 window.addEventListener("touchmove", (e) => {
   if (!isTouching || e.touches.length !== 1) return;
+  if (movedDuringTouch) return;
   e.preventDefault();
 
   const touch = e.touches[0];
@@ -305,36 +310,43 @@ window.addEventListener("touchmove", (e) => {
   lastTouchX = touch.clientX;
   lastTouchY = touch.clientY;
 
-  // ---- SCROLL (vertical swipe) ----
-  scrollProgress -= dy * 0.003; // swipe up = move forward
-  scrollProgress = THREE.MathUtils.clamp(scrollProgress, 0, 1);
-
   hideIntroText();
   hideControls();
 
-  // ---- ROTATE (horizontal swipe AFTER zap) ----
-  if (zapTriggered) {
-    targetRotation.y += dx * 0.004;
-    targetRotation.x += dy * 0.002;
-    targetRotation.x = THREE.MathUtils.clamp(targetRotation.x, -0.6, 0.6);
+  // BEFORE zap → vertical swipe zooms
+  if (!zapTriggered) {
+    scrollProgress -= dy * 0.003;
+    scrollProgress = THREE.MathUtils.clamp(scrollProgress, 0, 1);
+    return;
   }
+
+  // AFTER zap → swipes rotate ONLY (no zooming back)
+  targetRotation.y += dx * 0.004;
+  targetRotation.x += dy * 0.003;
+  targetRotation.x = THREE.MathUtils.clamp(targetRotation.x, -0.6, 0.6);
+
+  movedDuringTouch = true;
 }, { passive: false });
 
-window.addEventListener("touchend", () => {
+window.addEventListener("touchend", (e) => {
   isTouching = false;
   if (!postZapInteractive) return;
-  const touch = e.changedTouches[0]; 
-  const rect = canvas.getBoundingClientRect(); 
+  if (e.changedTouches.length !== 1) return;
+  if (movedDuringTouch) return;
+
+  const touch = e.changedTouches[0];
+  const rect = canvas.getBoundingClientRect();
+
   mouseVec.x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
   mouseVec.y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
-  
-  raycaster.setFromCamera(mouseVec, camera); 
-  const intersects = raycaster.intersectObject(vhs, true); 
-  if (intersects.length > 0) { 
-    window.location.href = "https://store.steampowered.com/app/2654210/Phasmonauts/"; 
-  }
 
-  
+  raycaster.setFromCamera(mouseVec, camera);
+  const intersects = raycaster.intersectObject(vhs, true);
+
+  if (intersects.length > 0) {
+    window.location.href =
+      "https://store.steampowered.com/app/2654210/Phasmonauts/";
+  }
 });
 
 window.addEventListener("touchcancel", () => {
