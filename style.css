@@ -5,6 +5,15 @@
   font-style: normal;
 }
 
+@font-face {
+  font-family: "Tiny5";
+  src: url("./fonts/tiny5-regular.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+}
+
+
+
 #scene {
   touch-action: none;
   overscroll-behavior: none;
@@ -50,4 +59,47 @@ canvas {
   text-shadow:
     0 0 6px rgba(120, 160, 255, 0.25),
     0 0 12px rgba(80, 120, 255, 0.15);
+}
+
+#control-indicator {
+  position: fixed;
+  /* bottom: 8vh; */
+  bottom: 40%;
+  left: 50%;
+  transform: translateX(-50%);
+
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+
+  font-family: "Tiny5", monospace;
+  font-size: clamp(14px, 2.5vw, 22px);
+  letter-spacing: 0.12em;
+
+  color: rgb(45, 143, 110);
+  text-shadow:
+    0 0 6px rgba(120, 160, 255, 0.25),
+    0 0 12px rgba(80, 120, 255, 0.15);
+
+  pointer-events: none;
+  z-index: 25;
+
+  opacity: 1;
+  transition: opacity 0.8s ease;
+}
+
+/* blinking arrows */
+#control-indicator .arrow {
+  animation: blink 1.4s infinite;
+}
+
+/* stagger the arrows */
+#control-indicator .arrow:last-child {
+  animation-delay: 0.7s;
+}
+
+@keyframes blink {
+  0%   { opacity: 0.15; }
+  40%  { opacity: 1; }
+  100% { opacity: 0.15; }
 }

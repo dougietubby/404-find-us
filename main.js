@@ -15,6 +15,16 @@ function hideIntroText() {
   setTimeout(() => introText.remove(), 1300);
 }
 
+const controlIndicator = document.getElementById("control-indicator");
+let controlsHidden = false;
+
+function hideControls() {
+  if (controlsHidden || !controlIndicator) return;
+  controlsHidden = true;
+  controlIndicator.style.opacity = "0";
+  setTimeout(() => controlIndicator.remove(), 900);
+}
+
 
 //  zap stuff
 let zapTriggered = false;
@@ -248,6 +258,12 @@ vhs.rotation.x = 0.05;
 vhs.frustumCulled = false;
 scene.add(vhs);
 
+// --- Rotation target (shared by mouse + touch + idle sway)
+const targetRotation = {
+  x: vhs.rotation.x,
+  y: vhs.rotation.y
+};
+
 //#endregion
 
 //#region Fade out logo
@@ -261,58 +277,46 @@ setTimeout(() => {
 }, 900); */
 //#endregion
 
+// --- Raycaster + mouse setup / touch---
+const raycaster = new THREE.Raycaster();
+const mouseVec = new THREE.Vector2();
 
 //#region Touch Controls
 let isTouching = false;
 let lastTouchX = 0;
 let lastTouchY = 0;
-let lastPinchDist = 0;
 
 window.addEventListener("touchstart", (e) => {
-  if (e.touches.length === 1) {
-    isTouching = true;
-    lastTouchX = e.touches[0].clientX;
-    lastTouchY = e.touches[0].clientY;
-  }
+  if (e.touches.length !== 1) return;
 
-  if (e.touches.length === 2) {
-    const dx = e.touches[0].clientX - e.touches[1].clientX;
-    const dy = e.touches[0].clientY - e.touches[1].clientY;
-    lastPinchDist = Math.sqrt(dx * dx + dy * dy);
-  }
+  isTouching = true;
+  lastTouchX = e.touches[0].clientX;
+  lastTouchY = e.touches[0].clientY;
 }, { passive: false });
 
 window.addEventListener("touchmove", (e) => {
+  if (!isTouching || e.touches.length !== 1) return;
   e.preventDefault();
 
-  // ---- ROTATION (after zap only) ----
-  if (zapTriggered && e.touches.length === 1 && isTouching) {
-    const touch = e.touches[0];
+  const touch = e.touches[0];
+  const dx = touch.clientX - lastTouchX;
+  const dy = touch.clientY - lastTouchY;
 
-    const dx = touch.clientX - lastTouchX;
-    const dy = touch.clientY - lastTouchY;
+  lastTouchX = touch.clientX;
+  lastTouchY = touch.clientY;
 
-    lastTouchX = touch.clientX;
-    lastTouchY = touch.clientY;
+  // ---- SCROLL (vertical swipe) ----
+  scrollProgress -= dy * 0.003; // swipe up = move forward
+  scrollProgress = THREE.MathUtils.clamp(scrollProgress, 0, 1);
 
+  hideIntroText();
+  hideControls();
+
+  // ---- ROTATE (horizontal swipe AFTER zap) ----
+  if (zapTriggered) {
     targetRotation.y += dx * 0.004;
-    targetRotation.x += dy * 0.003;
+    targetRotation.x += dy * 0.002;
     targetRotation.x = THREE.MathUtils.clamp(targetRotation.x, -0.6, 0.6);
-  }
-
-  // ---- PINCH = SCROLL ----
-  if (e.touches.length === 2) {
-    const dx = e.touches[0].clientX - e.touches[1].clientX;
-    const dy = e.touches[0].clientY - e.touches[1].clientY;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-
-    const delta = dist - lastPinchDist;
-    lastPinchDist = dist;
-
-    scrollProgress += delta * 0.002;
-    scrollProgress = THREE.MathUtils.clamp(scrollProgress, 0, 1);
-
-    hideIntroText();
   }
 }, { passive: false });
 
@@ -320,36 +324,22 @@ window.addEventListener("touchend", () => {
   isTouching = false;
 });
 
-window.addEventListener("touchend", (e) => {
-  if (!postZapInteractive) return;
-  if (e.changedTouches.length !== 1) return;
-
-  const touch = e.changedTouches[0];
-  const rect = canvas.getBoundingClientRect();
-
-  mouseVec.x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
-  mouseVec.y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
-
-  raycaster.setFromCamera(mouseVec, camera);
-  const intersects = raycaster.intersectObject(vhs, true);
-
-  if (intersects.length > 0) {
-    window.location.href =
-      "https://store.steampowered.com/app/2654210/Phasmonauts/";
-  }
+window.addEventListener("touchcancel", () => {
+  isTouching = false;
 });
-
 
 //#endregion
 
-window.addEventListener("mousemove", (e) => {
-  if (zapTriggered) {
-    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = (e.clientY / window.innerHeight) * 2 - 1;
+//#region Mouse Controls
 
-    targetRotation.y = mouse.x * 0.6;
-    targetRotation.x = mouse.y * 0.4;
-  }
+window.addEventListener("mousemove", (e) => {
+  if (!zapTriggered) return;
+
+  mouseVec.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouseVec.y = (e.clientY / window.innerHeight) * 2 - 1;
+
+  targetRotation.y = mouseVec.x * 0.6;
+  targetRotation.x = mouseVec.y * 0.4;
 });
 
 window.addEventListener("wheel", (e) => {
@@ -357,11 +347,9 @@ window.addEventListener("wheel", (e) => {
   scrollProgress = THREE.MathUtils.clamp(scrollProgress, 0, 1);
 
   hideIntroText();
+  hideControls();
 });
 
-// --- Raycaster + mouse setup ---
-const raycaster = new THREE.Raycaster();
-const mouseVec = new THREE.Vector2();
 
 // --- Hover / click handler ---
 function updateMouse(event) {
@@ -398,12 +386,38 @@ window.addEventListener("click", (event) => {
 
 //#region Lightning Setup
 // Lightning setup
-const lightningMaterial = new THREE.LineBasicMaterial({ color: 0x99ccff });
+const lightningMaterial = new THREE.LineBasicMaterial({
+  color: 0xaaccff,
+  transparent: true,
+  opacity: 1.0,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false
+});
 const lightningPoints = [ new THREE.Vector3(0, 20, 0), new THREE.Vector3(0, 0, 0) ];
 const lightningGeometry = new THREE.BufferGeometry().setFromPoints(lightningPoints);
 const lightning = new THREE.Line(lightningGeometry, lightningMaterial);
 lightning.visible = false; // start hidden
+const lightningColor = new THREE.Color();
 scene.add(lightning);
+
+function generateLightning(start, end, segments = 8, chaos = 1.2) {
+  const points = [];
+  points.push(start.clone());
+
+  for (let i = 1; i < segments; i++) {
+    const t = i / segments;
+    const pos = start.clone().lerp(end, t);
+
+    pos.x += (Math.random() - 0.5) * chaos;
+    pos.y += (Math.random() - 0.5) * chaos;
+    pos.z += (Math.random() - 0.5) * chaos;
+
+    points.push(pos);
+  }
+
+  points.push(end.clone());
+  return points;
+}
 //#endregion
 
 
@@ -505,11 +519,30 @@ if (zapTriggered && zapTimer > 0) {
 
     // Flicker intensity / alpha
     const flicker = Math.random() * 0.8 + 0.2;
-    lightningMaterial.color.setHSL(0.55, 1, flicker); // blueish lightning
+    lightningColor.setRGB(
+      0.6 * flicker,
+      0.8 * flicker,
+      1.0 * flicker
+    );
+    lightningMaterial.color.copy(lightningColor); // blueish lightning
+
+    lightningMaterial.opacity = THREE.MathUtils.clamp(flicker * 1.2, 0.6, 1.0);
 
     // Optionally move start XZ a bit for dynamic strike
-    lightning.geometry.attributes.position.setXYZ(0, (Math.random() - 0.5) * 2, 20, (Math.random() - 0.5) * 2);
-    lightning.geometry.attributes.position.needsUpdate = true;
+    const start = new THREE.Vector3(
+      (Math.random() - 0.5) * 2,
+      18,
+      (Math.random() - 0.5) * 2
+    );
+
+    const end = new THREE.Vector3(
+      vhs.position.x,
+      vhs.position.y + 1.2,
+      vhs.position.z
+    );
+
+    const points = generateLightning(start, end, 10, 1.6);
+    lightning.geometry.setFromPoints(points);
 
     // Quick fade out after zap
     if (zapTimer < 0.05) lightning.visible = false;
