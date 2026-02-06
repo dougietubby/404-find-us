@@ -262,11 +262,6 @@ setTimeout(() => {
 //#endregion
 
 
-//#region Mouse Controls
-// --- Mouse interaction ---
-const mouse = { x: 0, y: 0 };
-const targetRotation = { x: 0, y: 0 };
-
 //#region Touch Controls
 let isTouching = false;
 let lastTouchX = 0;
@@ -274,15 +269,12 @@ let lastTouchY = 0;
 let lastPinchDist = 0;
 
 window.addEventListener("touchstart", (e) => {
-  if (!zapTriggered) return;
-
   if (e.touches.length === 1) {
     isTouching = true;
     lastTouchX = e.touches[0].clientX;
     lastTouchY = e.touches[0].clientY;
   }
 
-  // Pinch start
   if (e.touches.length === 2) {
     const dx = e.touches[0].clientX - e.touches[1].clientX;
     const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -291,11 +283,10 @@ window.addEventListener("touchstart", (e) => {
 }, { passive: false });
 
 window.addEventListener("touchmove", (e) => {
-// allow touch always, but only rotate after zap
   e.preventDefault();
 
-  // ---- ONE FINGER ROTATION ----
-  if (e.touches.length === 1 && isTouching) {
+  // ---- ROTATION (after zap only) ----
+  if (zapTriggered && e.touches.length === 1 && isTouching) {
     const touch = e.touches[0];
 
     const dx = touch.clientX - lastTouchX;
@@ -306,12 +297,10 @@ window.addEventListener("touchmove", (e) => {
 
     targetRotation.y += dx * 0.004;
     targetRotation.x += dy * 0.003;
-
-    // Clamp so it stays readable
     targetRotation.x = THREE.MathUtils.clamp(targetRotation.x, -0.6, 0.6);
   }
 
-  // ---- TWO FINGER PINCH (SCROLL / DOLLY) ----
+  // ---- PINCH = SCROLL ----
   if (e.touches.length === 2) {
     const dx = e.touches[0].clientX - e.touches[1].clientX;
     const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -327,18 +316,19 @@ window.addEventListener("touchmove", (e) => {
   }
 }, { passive: false });
 
+window.addEventListener("touchend", () => {
+  isTouching = false;
+});
+
 window.addEventListener("touchend", (e) => {
   if (!postZapInteractive) return;
   if (e.changedTouches.length !== 1) return;
 
   const touch = e.changedTouches[0];
-  const rect = window.getBoundingClientRect();
+  const rect = canvas.getBoundingClientRect();
 
   mouseVec.x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
   mouseVec.y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
-
-  targetRotation.y *= 0.98;
-  targetRotation.x *= 0.98;
 
   raycaster.setFromCamera(mouseVec, camera);
   const intersects = raycaster.intersectObject(vhs, true);
@@ -402,6 +392,8 @@ window.addEventListener("click", (event) => {
     window.location.href = "https://store.steampowered.com/app/2654210/Phasmonauts/";
   }
 });
+
+
 //#endregion
 
 //#region Lightning Setup
